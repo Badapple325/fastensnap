@@ -58,19 +58,56 @@ export async function uploadImage(
 
     const data = await res.json();
     // Expect n8n or ML webhook to return structured JSON like { labels: [{label, confidence, details}], raw }
-    if (data && data.labels) {
-      return { labels: data.labels, raw: data };
-    }
+    // Try multiple common response shapes and normalize to RecognitionResult
+    const labels: RecognitionLabel[] = [];
 
-    // Attempt to map some common shapes (Replicate/Roboflow) to our result
-    if (data && data.predictions) {
-      const labels = Array.isArray(data.predictions)
-        ? data.predictions.map((p: any) => ({ label: p.class || p.label || String(p), confidence: p.confidence ?? 0 }))
-        : [];
+    // 1) data.labels (our preferred shape)
+    if (data && Array.isArray(data.labels) && data.labels.length) {
+      for (const l of data.labels) {
+        labels.push({ label: l.label || String(l), confidence: l.confidence ?? 0, details: l.details ?? l });
+      }
       return { labels, raw: data };
     }
 
-    // Fallback
+    // 2) data.predictions or data.outputs (Replicate / Roboflow common shapes)
+    const preds = data && (data.predictions || data.outputs || data.output || data.result || data[0]);
+    if (preds) {
+      const arr = Array.isArray(preds) ? preds : [preds];
+      for (const p of arr) {
+        // p might be { class, label, confidence } or a string
+        if (typeof p === 'string') {
+          labels.push({ label: p, confidence: 1 });
+        } else {
+          const label = p.class || p.label || p.name || (p.metadata && p.metadata.label) || JSON.stringify(p);
+          const confidence = p.confidence ?? p.score ?? p.probability ?? 0;
+          labels.push({ label: label, confidence: typeof confidence === 'number' ? confidence : 0, details: p });
+        }
+      }
+      if (labels.length) return { labels, raw: data };
+    }
+
+    // 3) Some providers return an array at top level
+    if (Array.isArray(data)) {
+      for (const p of data) {
+        if (typeof p === 'string') labels.push({ label: p, confidence: 1 });
+        else labels.push({ label: p.label || JSON.stringify(p), confidence: p.confidence ?? 0, details: p });
+      }
+      if (labels.length) return { labels, raw: data };
+    }
+
+    // 4) If the response contains nested prediction objects under data["0"] or similar
+    if (data && typeof data === 'object') {
+      // attempt generic extraction heuristics
+      const possible = Object.values(data).flatMap((v: any) => (Array.isArray(v) ? v : []));
+      for (const item of possible) {
+        if (item && (item.label || item.class || item.name)) {
+          labels.push({ label: item.label || item.class || item.name || JSON.stringify(item), confidence: item.confidence ?? 0, details: item });
+        }
+      }
+      if (labels.length) return { labels, raw: data };
+    }
+
+    // Fallback to mock if nothing matched
     return mockResult(uri);
   } catch (e) {
     return mockResult(uri);
