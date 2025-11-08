@@ -6,6 +6,7 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
+import { Card, Button, Text as PaperText } from 'react-native-paper';
 
 export default function HomeScreen() {
   return (
@@ -17,6 +18,18 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }>
+      <ThemedView style={{ paddingHorizontal: 16, marginTop: 8 }}>
+        <Card>
+          <Card.Content>
+            <PaperText variant="titleMedium">FastenSnap</PaperText>
+            <PaperText variant="bodyMedium">Identify any fastener instantly</PaperText>
+          </Card.Content>
+          <Card.Actions>
+            <Button icon="camera">Take Photo</Button>
+            <Button icon="upload">Upload</Button>
+          </Card.Actions>
+        </Card>
+      </ThemedView>
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Welcome!</ThemedText>
         <HelloWave />

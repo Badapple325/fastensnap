@@ -1,0 +1,10 @@
+{
+  "service": "n8n",
+  "dockerfilePath": "./Dockerfile",
+  "env": [
+    "REPLICATE_API_TOKEN",
+    "N8N_BASIC_AUTH_ACTIVE",
+    "N8N_BASIC_AUTH_USER",
+    "N8N_BASIC_AUTH_PASSWORD"
+  ]
+}

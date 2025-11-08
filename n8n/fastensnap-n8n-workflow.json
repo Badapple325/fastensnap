@@ -1,0 +1,111 @@
+{
+  "name": "FastenSnap - image webhook -> Replicate",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fastensnap-upload",
+        "responseMode": "onReceived",
+        "responseData": "={{$json}}",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Convert incoming binary file(s) into base64 on the item\nconst newItems = []\nfor (const item of items) {\n  const newItem = { json: {} }\n  // If the file is in item.binary, convert the first binary property we find\n  const binary = item.binary && Object.keys(item.binary || {})[0] ? item.binary[Object.keys(item.binary || {})[0]] : null\n  if (binary && binary.data) {\n    // binary.data is a Buffer-like object in n8n Function node\n    const b64 = Buffer.from(binary.data).toString('base64');\n    newItem.json.base64 = b64;\n    newItem.json.filename = binary.fileName || 'upload.jpg';\n  } else if (item.json && item.json.body) {\n    // fallback: if the body contains base64 already\n    newItem.json.base64 = item.json.body;\n  }\n  newItems.push(newItem)\n}\nreturn newItems;"
+      },
+      "name": "EncodeToBase64",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.replicate.com/v1/predictions",
+        "options": {
+          "headers": {
+            "Authorization": "=Bearer $json['REPLICATE_API_TOKEN'] || 'REPLACE_WITH_YOUR_TOKEN'",
+            "Content-Type": "application/json"
+          }
+        },
+        "bodyParametersJson": "=JSON.stringify({ version: 'REPLACE_WITH_MODEL_VERSION', input: { image: 'data:image/jpeg;base64,' + $json.base64 } })",
+        "responseFormat": "json",
+        "fullResponse": false
+      },
+      "name": "Replicate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Map Replicate response into { labels: [{label, confidence, details}] }\nconst out = { labels: [] }\nconst body = items[0].json || {}\n// Different models return differently; try common shapes\nif (body && body.output) {\n  // Many Replicate models return output array or object\n  const outData = Array.isArray(body.output) ? body.output : [body.output]\n  out.labels = outData.map(o => ({ label: o.label || o.class || String(o), confidence: o.confidence || 0, details: o }))\n} else if (body && body.predictions) {\n  out.labels = body.predictions.map(p => ({ label: p.label || p.class, confidence: p.confidence || 0, details: p }))\n} else if (body && body[0]) {\n  out.labels = (Array.isArray(body) ? body : [body]).map(p => ({ label: p.label || p.class || String(p), confidence: p.confidence || 0, details: p }))\n} else {
+  out.labels = [{ label: 'Unknown fastener', confidence: 0, details: body }]
+}\nreturn [{ json: out }];"
+      },
+      "name": "FormatResult",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "responseCode": 200
+      },
+      "name": "RespondToWebhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "EncodeToBase64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EncodeToBase64": {
+      "main": [
+        [
+          {
+            "node": "Replicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replicate": {
+      "main": [
+        [
+          {
+            "node": "FormatResult",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FormatResult": {
+      "main": [
+        [
+          {
+            "node": "RespondToWebhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

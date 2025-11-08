@@ -1,0 +1,4 @@
+// This is an example local webhook file. DO NOT commit your real webhook URL.
+// Create `config/webhook.local.ts` (gitignored) with the following content for local dev:
+
+export const WEBHOOK_URL = 'https://fastensnap-n8n.onrender.com/webhook/fastensnap-upload';
