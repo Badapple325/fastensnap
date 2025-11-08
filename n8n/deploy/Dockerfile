@@ -5,4 +5,5 @@ WORKDIR /data
 EXPOSE 5678
 
 # Use ENTRYPOINT + CMD so the runtime invokes n8n reliably
-CMD ["sh", "-c", "n8n"]
+# Run N8n using bash (avoid missing sh edge-cases on some runtimes)
+CMD ["bash", "-c", "n8n"]
