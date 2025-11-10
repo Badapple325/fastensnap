@@ -34,6 +34,11 @@ export default function ResultsScreen() {
   return (
     <View style={{ flex: 1 }}>
       <PaperAppbar title="Results" onBack={() => router.back()} />
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <Button mode="outlined" onPress={() => router.push('/capture')} icon="camera-arrow-left">
+          Take another photo
+        </Button>
+      </View>
       <ScrollView contentContainerStyle={styles.container}>
         <Card style={{ width: '100%', marginBottom: 12 }}>
           {uri ? (
